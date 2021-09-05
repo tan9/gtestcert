@@ -1,4 +1,4 @@
-module filippo.io/mkcert
+module tan9.io/gtestcert
 
 go 1.13
 

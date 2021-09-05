@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Command mkcert is a simple zero-config tool to make development certificates.
+// Command gtestcert is a simple zero-config tool to make development certificates.
 package main
 
 import (
@@ -27,21 +27,21 @@ import (
 	"golang.org/x/net/idna"
 )
 
-const shortUsage = `Usage of mkcert:
+const shortUsage = `Usage of gtestcert:
 
-	$ mkcert -install
+	$ gtestcert -install
 	Install the local CA in the system trust store.
 
-	$ mkcert example.org
+	$ gtestcert example.org
 	Generate "example.org.pem" and "example.org-key.pem".
 
-	$ mkcert example.com myapp.dev localhost 127.0.0.1 ::1
+	$ gtestcert example.com myapp.dev localhost 127.0.0.1 ::1
 	Generate "example.com+4.pem" and "example.com+4-key.pem".
 
-	$ mkcert "*.example.it"
+	$ gtestcert "*.example.it"
 	Generate "_wildcard.example.it.pem" and "_wildcard.example.it-key.pem".
 
-	$ mkcert -uninstall
+	$ gtestcert -uninstall
 	Uninstall the local CA (but do not delete it).
 
 `
@@ -102,7 +102,7 @@ func main() {
 	)
 	flag.Usage = func() {
 		fmt.Fprint(flag.CommandLine.Output(), shortUsage)
-		fmt.Fprintln(flag.CommandLine.Output(), `For more options, run "mkcert -help".`)
+		fmt.Fprintln(flag.CommandLine.Output(), `For more options, run "gtestcert -help".`)
 	}
 	flag.Parse()
 	if *helpFlag {
@@ -195,7 +195,7 @@ func (m *mkcert) Run(args []string) {
 			log.Println("Note: the local CA is not installed in the Java trust store.")
 		}
 		if warning {
-			log.Println("Run \"mkcert -install\" for certificates to be trusted automatically ⚠️")
+			log.Println("Run \"gtestcert -install\" for certificates to be trusted automatically ⚠️")
 		}
 	}
 
@@ -257,7 +257,7 @@ func getCAROOT() string {
 		}
 		dir = filepath.Join(dir, ".local", "share")
 	}
-	return filepath.Join(dir, "mkcert")
+	return filepath.Join(dir, "gtestcert")
 }
 
 func (m *mkcert) install() {
@@ -281,7 +281,7 @@ func (m *mkcert) install() {
 				log.Printf(`Note: %s support is not available on your platform. ℹ️`, NSSBrowsers)
 			} else if !hasCertutil {
 				log.Printf(`Warning: "certutil" is not available, so the CA can't be automatically installed in %s! ⚠️`, NSSBrowsers)
-				log.Printf(`Install "certutil" with "%s" and re-run "mkcert -install" 👈`, CertutilInstallHelp)
+				log.Printf(`Install "certutil" with "%s" and re-run "gtestcert -install" 👈`, CertutilInstallHelp)
 			}
 		}
 	}
@@ -307,7 +307,7 @@ func (m *mkcert) uninstall() {
 		} else if CertutilInstallHelp != "" {
 			log.Print("")
 			log.Printf(`Warning: "certutil" is not available, so the CA can't be automatically uninstalled from %s (if it was ever installed)! ⚠️`, NSSBrowsers)
-			log.Printf(`You can install "certutil" with "%s" and re-run "mkcert -uninstall" 👈`, CertutilInstallHelp)
+			log.Printf(`You can install "certutil" with "%s" and re-run "gtestcert -uninstall" 👈`, CertutilInstallHelp)
 			log.Print("")
 		}
 	}
@@ -381,7 +381,7 @@ func commandWithSudo(cmd ...string) *exec.Cmd {
 	}
 	if !binaryExists("sudo") {
 		sudoWarningOnce.Do(func() {
-			log.Println(`Warning: "sudo" is not available, and mkcert is not running as root. The (un)install operation might fail. ⚠️`)
+			log.Println(`Warning: "sudo" is not available, and gtestcert is not running as root. The (un)install operation might fail. ⚠️`)
 		})
 		return exec.Command(cmd[0], cmd[1:]...)
 	}
