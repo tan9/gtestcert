@@ -10,10 +10,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
 	"io/ioutil"
 	"log"
@@ -290,72 +288,28 @@ func (m *mkcert) loadCA() {
 	}
 	m.caCert, err = x509.ParseCertificate(certDERBlock.Bytes)
 	fatalIfErr(err, "failed to parse the CA certificate")
-
-	if !pathExists(filepath.Join(m.CAROOT, rootKeyName)) {
-		return // keyless mode, where only -install works
-	}
-
-	keyPEMBlock, err := ioutil.ReadFile(filepath.Join(m.CAROOT, rootKeyName))
-	fatalIfErr(err, "failed to read the CA key")
-	keyDERBlock, _ := pem.Decode(keyPEMBlock)
-	if keyDERBlock == nil || keyDERBlock.Type != "PRIVATE KEY" {
-		log.Fatalln("ERROR: failed to read the CA key: unexpected content")
-	}
-	m.caKey, err = x509.ParsePKCS8PrivateKey(keyDERBlock.Bytes)
-	fatalIfErr(err, "failed to parse the CA key")
 }
 
 func (m *mkcert) newCA() {
-	priv, err := m.generateKey(true)
-	fatalIfErr(err, "failed to generate the CA key")
-	pub := priv.(crypto.Signer).Public()
+	cert := []byte(`
+-----BEGIN CERTIFICATE-----
+MIICRTCCAcugAwIBAgIQa/z+iOa8FXjTkQPnnZ3ijDAKBggqhkjOPQQDAzBkMQsw
+CQYDVQQGEwJUVzESMBAGA1UECgwJ6KGM5pS/6ZmiMUEwPwYDVQQDDDgo5ris6Kmm
+55SoKSBHb3Zlcm5tZW50IFJvb3QgQ2VydGlmaWNhdGlvbiBBdXRob3JpdHkgLSBH
+NDAeFw0xNjA0MzAxNjAwMDBaFw00MTA0MzAxNjAwMDBaMGQxCzAJBgNVBAYTAlRX
+MRIwEAYDVQQKDAnooYzmlL/pmaIxQTA/BgNVBAMMOCjmuKzoqabnlKgpIEdvdmVy
+bm1lbnQgUm9vdCBDZXJ0aWZpY2F0aW9uIEF1dGhvcml0eSAtIEc0MHYwEAYHKoZI
+zj0CAQYFK4EEACIDYgAEy6sR/mXQjy2ZUvttZqGw/4kGKcEAiRph41BPeblTuhsf
+eCMFfAL8Zb1MDPPkMzVrXW2/Wo/EKRKoE2ec/SdJStziIVbNfvqi3va/wliI6Mu7
+x6Zf7Jo9Reh24Y3uxk0ro0IwQDAdBgNVHQ4EFgQUn86XTgj3GMOMklsIFiO11EjS
+F0kwDgYDVR0PAQH/BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwMD
+aAAwZQIwdN4MJRMBy0oMW+DdA0TG7onvgDrkBkweUJZBsFSCdAVV0hKoq2MsqFdZ
+ghDxkTsgAjEA+GLsR7EpdZzQas4jpzF+sBnNlh898Dsw5SCkXDAGZXQZPq3OS2eg
+VI6Z+QNPpUaU
+-----END CERTIFICATE-----
+`)
 
-	spkiASN1, err := x509.MarshalPKIXPublicKey(pub)
-	fatalIfErr(err, "failed to encode public key")
-
-	var spki struct {
-		Algorithm        pkix.AlgorithmIdentifier
-		SubjectPublicKey asn1.BitString
-	}
-	_, err = asn1.Unmarshal(spkiASN1, &spki)
-	fatalIfErr(err, "failed to decode public key")
-
-	skid := sha1.Sum(spki.SubjectPublicKey.Bytes)
-
-	tpl := &x509.Certificate{
-		SerialNumber: randomSerialNumber(),
-		Subject: pkix.Name{
-			Organization:       []string{"mkcert development CA"},
-			OrganizationalUnit: []string{userAndHostname},
-
-			// The CommonName is required by iOS to show the certificate in the
-			// "Certificate Trust Settings" menu.
-			// https://github.com/FiloSottile/mkcert/issues/47
-			CommonName: "mkcert " + userAndHostname,
-		},
-		SubjectKeyId: skid[:],
-
-		NotAfter:  time.Now().AddDate(10, 0, 0),
-		NotBefore: time.Now(),
-
-		KeyUsage: x509.KeyUsageCertSign,
-
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		MaxPathLenZero:        true,
-	}
-
-	cert, err := x509.CreateCertificate(rand.Reader, tpl, tpl, pub, priv)
-	fatalIfErr(err, "failed to generate CA certificate")
-
-	privDER, err := x509.MarshalPKCS8PrivateKey(priv)
-	fatalIfErr(err, "failed to encode CA key")
-	err = ioutil.WriteFile(filepath.Join(m.CAROOT, rootKeyName), pem.EncodeToMemory(
-		&pem.Block{Type: "PRIVATE KEY", Bytes: privDER}), 0400)
-	fatalIfErr(err, "failed to save CA key")
-
-	err = ioutil.WriteFile(filepath.Join(m.CAROOT, rootName), pem.EncodeToMemory(
-		&pem.Block{Type: "CERTIFICATE", Bytes: cert}), 0644)
+	err := ioutil.WriteFile(filepath.Join(m.CAROOT, rootName), cert, 0644)
 	fatalIfErr(err, "failed to save CA key")
 
 	log.Printf("Created a new local CA 💥\n")
