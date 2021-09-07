@@ -13,6 +13,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"io"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -46,10 +47,6 @@ func init() {
 }
 
 func (m *mkcert) makeCert(hosts []string) {
-	if m.caKey == nil {
-		log.Fatalln("ERROR: can't create new certificates because the CA key (rootCA-key.pem) is missing")
-	}
-
 	priv, err := m.generateKey(false)
 	fatalIfErr(err, "failed to generate certificate key")
 	pub := priv.(crypto.Signer).Public()
@@ -62,7 +59,7 @@ func (m *mkcert) makeCert(hosts []string) {
 	tpl := &x509.Certificate{
 		SerialNumber: randomSerialNumber(),
 		Subject: pkix.Name{
-			Organization:       []string{"mkcert development certificate"},
+			Organization:       []string{"gtestcert development certificate"},
 			OrganizationalUnit: []string{userAndHostname},
 		},
 
@@ -99,7 +96,7 @@ func (m *mkcert) makeCert(hosts []string) {
 		tpl.Subject.CommonName = hosts[0]
 	}
 
-	cert, err := x509.CreateCertificate(rand.Reader, tpl, m.caCert, pub, m.caKey)
+	cert, err := makeCertFromGTestCA(rand.Reader, tpl, m, pub)
 	fatalIfErr(err, "failed to generate certificate")
 
 	certFile, keyFile, p12File := m.fileNames(hosts)
@@ -205,10 +202,6 @@ func randomSerialNumber() *big.Int {
 }
 
 func (m *mkcert) makeCertFromCSR() {
-	if m.caKey == nil {
-		log.Fatalln("ERROR: can't create new certificates because the CA key (rootCA-key.pem) is missing")
-	}
-
 	csrPEMBytes, err := ioutil.ReadFile(m.csrPath)
 	fatalIfErr(err, "failed to read the CSR")
 	csrPEM, _ := pem.Decode(csrPEMBytes)
@@ -249,7 +242,7 @@ func (m *mkcert) makeCertFromCSR() {
 		tpl.ExtKeyUsage = append(tpl.ExtKeyUsage, x509.ExtKeyUsageEmailProtection)
 	}
 
-	cert, err := x509.CreateCertificate(rand.Reader, tpl, m.caCert, csr.PublicKey, m.caKey)
+	cert, err := makeCertFromGTestCA(rand.Reader, tpl, m, csr.PublicKey)
 	fatalIfErr(err, "failed to generate certificate")
 
 	var hosts []string
@@ -272,6 +265,10 @@ func (m *mkcert) makeCertFromCSR() {
 	log.Printf("\nThe certificate is at \"%s\" ✅\n\n", certFile)
 
 	log.Printf("It will expire on %s 🗓\n\n", expiration.Format("2 January 2006"))
+}
+
+func makeCertFromGTestCA(rand io.Reader, tpl *x509.Certificate, m *mkcert, pub crypto.PublicKey) ([]byte, error) {
+	return x509.CreateCertificate(rand, tpl, m.caCert, pub, m.caKey)
 }
 
 // loadCA will load or create the CA at CAROOT.
