@@ -1,6 +1,18 @@
 # gtestcert
 
-`gtestcert` is a simple tool based on [mkcert](https://github.com/FiloSottile/mkcert) for making development certificates trusted by [GTestCA](https://gtestca.nat.gov.tw/). It requires no configuration.
+`gtestcert` is a simple tool based on [mkcert](https://github.com/FiloSottile/mkcert) for making development
+certificates trusted by [GTestCA](https://gtestca.nat.gov.tw/). It requires no configuration.
+
+GTestCA stands for **G**overnment **Test CA** (政府測試憑證管理中心),
+a Certificate Authority for test, development purposes, operated by
+National Development Council (國家發展委員會) (Taiwan). You can submit a CSR from their website https://gtestca.nat.gov.tw/
+and get a signed certificate immediately free of charge.
+
+By trusting such a CA operated by the government reduces the operational burden
+for developers. And `gtestcert` make the certificate signing process as easy as `mkcert`.
+
+You can see the full EULA about GTestCA here:
+https://gtestca.nat.gov.tw/download/GTESTCA_EULA.pdf
 
 ```
 $ gtestcert -install
