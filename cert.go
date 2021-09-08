@@ -209,8 +209,7 @@ func (m *mkcert) makeCertFromCSR() {
 	csrPEM, _ := pem.Decode(csrPEMBytes)
 	if csrPEM == nil {
 		log.Fatalln("ERROR: failed to read the CSR: unexpected content")
-	}
-	if csrPEM.Type != "CERTIFICATE REQUEST" &&
+	} else if csrPEM.Type != "CERTIFICATE REQUEST" &&
 		csrPEM.Type != "NEW CERTIFICATE REQUEST" {
 		log.Fatalln("ERROR: failed to read the CSR: expected CERTIFICATE REQUEST, got " + csrPEM.Type)
 	}
