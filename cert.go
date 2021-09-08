@@ -84,6 +84,7 @@ func (m *mkcert) makeCert(hosts []string) {
 	}
 
 	csr, err := x509.CreateCertificateRequest(rand.Reader, tpl, priv)
+	fatalIfErr(err, "failed to create CSR")
 
 	csrPEM := pem.EncodeToMemory(&pem.Block{
 		Type: "CERTIFICATE REQUEST", Bytes: csr,
@@ -237,8 +238,7 @@ func (m *mkcert) makeCertFromCSR() {
 	}
 	certFile, _, _ := m.fileNames(hosts)
 
-	err = ioutil.WriteFile(certFile, pem.EncodeToMemory(
-		&pem.Block{Type: "CERTIFICATE", Bytes: certDER}), 0644)
+	err = ioutil.WriteFile(certFile, certPEM, 0644)
 	fatalIfErr(err, "failed to save certificate")
 
 	m.printHosts(hosts)
@@ -359,37 +359,37 @@ sBtErFji6FyxiuP/Gx/k9rlCSiDi1TDYYROIqfC/wqPXLZiu2t2FjaxLieBWzovd
 	fatalIfErr(err, "failed to sign tbs")
 
 	raoSignBase64 := base64.StdEncoding.EncodeToString(raoSign)
-	enrollXml := `<?xml version="1.0" encoding="UTF-8" ?>
+	enrollXML := `<?xml version="1.0" encoding="UTF-8" ?>
 <EnrollXML>
   ` + tbs + `
   <SigB64>` + raoSignBase64 + `</SigB64>
 </EnrollXML>`
 
-	xmlBase64 := base64.StdEncoding.EncodeToString([]byte(enrollXml))
+	xmlBase64 := base64.StdEncoding.EncodeToString([]byte(enrollXML))
 
 	resp, err := http.PostForm("https://gtestca.nat.gov.tw/GeneralRA/general_ra_servlet", url.Values{"data": {xmlBase64}})
 	fatalIfErr(err, "failed to create certificate from GTestCA")
 
 	defer resp.Body.Close()
-	responseXmlString, err := ioutil.ReadAll(resp.Body)
+	responseXMLString, err := ioutil.ReadAll(resp.Body)
 	fatalIfErr(err, "failed to parser GTestCA response")
 
-	responseXml := ResponseXML{}
-	err = xml.Unmarshal(responseXmlString, &responseXml)
+	responseXML := ResponseXML{}
+	err = xml.Unmarshal(responseXMLString, &responseXML)
 	fatalIfErr(err, "failed to unmarshall response")
 
-	if responseXml.RetCode.MajorRetCode != 0 || responseXml.RetCode.MinorRetCode != 0 {
+	if responseXML.RetCode.MajorRetCode != 0 || responseXML.RetCode.MinorRetCode != 0 {
 		log.Fatalf("failed to generate certificate. MajorRetCode: %d, MinorRetCode: %d, RetMsg: %s",
-			responseXml.RetCode.MajorRetCode, responseXml.RetCode.MinorRetCode, responseXml.RetCode.RetMsg)
+			responseXML.RetCode.MajorRetCode, responseXML.RetCode.MinorRetCode, responseXML.RetCode.RetMsg)
 	}
 
-	certDER, err := base64.StdEncoding.DecodeString(responseXml.XMLBody.CertInfo.CertB64)
+	certDER, err := base64.StdEncoding.DecodeString(responseXML.XMLBody.CertInfo.CertB64)
 	fatalIfErr(err, "failed to decode signed certificate")
 
-	caIntermediateDER, err := base64.StdEncoding.DecodeString(responseXml.XMLBody.CACertInfo.CACertB64)
+	caIntermediateDER, err := base64.StdEncoding.DecodeString(responseXML.XMLBody.CACertInfo.CACertB64)
 	fatalIfErr(err, "failed to decode intermediate CA certificate")
 
-	caRootDER, err := base64.StdEncoding.DecodeString(responseXml.XMLBody.CACertInfo.RootCACertB64)
+	caRootDER, err := base64.StdEncoding.DecodeString(responseXML.XMLBody.CACertInfo.RootCACertB64)
 	fatalIfErr(err, "failed to decode intermediate CA certificate")
 
 	return certDER, caIntermediateDER, caRootDER, nil
