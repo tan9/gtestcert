@@ -16,9 +16,9 @@ https://gtestca.nat.gov.tw/download/GTESTCA_EULA.pdf
 
 ```
 $ gtestcert -install
-Created a new local CA 💥
-The local CA is now installed in the system trust store! ⚡️
-The local CA is now installed in the Firefox trust store (requires browser restart)! 🦊
+Installed the GTestRCA 💥
+The GTestRCA is now installed in the system trust store! ⚡️
+The GTestRCA is now installed in the Firefox trust store (requires browser restart)! 🦊
 
 $ gtestcert example.com "*.example.com" example.test localhost 127.0.0.1 ::1
 
@@ -37,7 +37,7 @@ The certificate is at "./example.com+5.pem" and the key at "./example.com+5-key.
 
 Using certificates from real certificate authorities (CAs) for development can be dangerous or impossible (for hosts like `example.test`, `localhost` or `127.0.0.1`), but self-signed certificates cause trust errors. Managing your own CA is the best solution, but usually involves arcane commands, specialized knowledge and manual steps.
 
-gtestcert automatically installs the GTestRCA in the system root store, and generates locally-trusted certificates. gtestcert does not automatically configure servers to use the certificates, though, that's up to you.
+gtestcert automatically installs the GTestRCA in the system root store, and generates GTestCA trusted certificates. gtestcert does not automatically configure servers to use the certificates, though, that's up to you.
 
 ## Installation
 

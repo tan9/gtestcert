@@ -30,7 +30,7 @@ import (
 const shortUsage = `Usage of gtestcert:
 
 	$ gtestcert -install
-	Install the local CA in the system trust store.
+	Install the GTestRCA in the system trust store.
 
 	$ gtestcert example.org
 	Generate "example.org.pem" and "example.org-key.pem".
@@ -42,7 +42,7 @@ const shortUsage = `Usage of gtestcert:
 	Generate "_wildcard.example.it.pem" and "_wildcard.example.it-key.pem".
 
 	$ gtestcert -uninstall
-	Uninstall the local CA (but do not delete it).
+	Uninstall the GTestCA (but do not delete it).
 
 `
 
@@ -67,10 +67,6 @@ const advancedUsage = `Advanced options:
 
 	-CAROOT
 	    Print the CA certificate and key storage location.
-
-	$CAROOT (environment variable)
-	    Set the CA certificate and key storage location. (This allows
-	    maintaining multiple local CAs in parallel.)
 
 	$TRUST_STORES (environment variable)
 	    A comma-separated list of trust stores to install the local
@@ -184,15 +180,15 @@ func (m *mkcert) Run(args []string) {
 		var warning bool
 		if storeEnabled("system") && !m.checkPlatform() {
 			warning = true
-			log.Println("Note: the local CA is not installed in the system trust store.")
+			log.Println("Note: the GTestRCA is not installed in the system trust store.")
 		}
 		if storeEnabled("nss") && hasNSS && CertutilInstallHelp != "" && !m.checkNSS() {
 			warning = true
-			log.Printf("Note: the local CA is not installed in the %s trust store.", NSSBrowsers)
+			log.Printf("Note: the GTestRCA is not installed in the %s trust store.", NSSBrowsers)
 		}
 		if storeEnabled("java") && hasJava && !m.checkJava() {
 			warning = true
-			log.Println("Note: the local CA is not installed in the Java trust store.")
+			log.Println("Note: the GTestRCA is not installed in the Java trust store.")
 		}
 		if warning {
 			log.Println("Run \"gtestcert -install\" for certificates to be trusted automatically ⚠️")
@@ -263,20 +259,20 @@ func getCAROOT() string {
 func (m *mkcert) install() {
 	if storeEnabled("system") {
 		if m.checkPlatform() {
-			log.Print("The local CA is already installed in the system trust store! 👍")
+			log.Print("The GTestRCA is already installed in the system trust store! 👍")
 		} else {
 			if m.installPlatform() {
-				log.Print("The local CA is now installed in the system trust store! ⚡️")
+				log.Print("The GTestRCA is now installed in the system trust store! ⚡️")
 			}
 			m.ignoreCheckFailure = true // TODO: replace with a check for a successful install
 		}
 	}
 	if storeEnabled("nss") && hasNSS {
 		if m.checkNSS() {
-			log.Printf("The local CA is already installed in the %s trust store! 👍", NSSBrowsers)
+			log.Printf("The GTestRCA is already installed in the %s trust store! 👍", NSSBrowsers)
 		} else {
 			if hasCertutil && m.installNSS() {
-				log.Printf("The local CA is now installed in the %s trust store (requires browser restart)! 🦊", NSSBrowsers)
+				log.Printf("The GTestRCA is now installed in the %s trust store (requires browser restart)! 🦊", NSSBrowsers)
 			} else if CertutilInstallHelp == "" {
 				log.Printf(`Note: %s support is not available on your platform. ℹ️`, NSSBrowsers)
 			} else if !hasCertutil {
@@ -287,11 +283,11 @@ func (m *mkcert) install() {
 	}
 	if storeEnabled("java") && hasJava {
 		if m.checkJava() {
-			log.Println("The local CA is already installed in Java's trust store! 👍")
+			log.Println("The GTestRCA is already installed in Java's trust store! 👍")
 		} else {
 			if hasKeytool {
 				m.installJava()
-				log.Println("The local CA is now installed in Java's trust store! ☕️")
+				log.Println("The GTestRCA is now installed in Java's trust store! ☕️")
 			} else {
 				log.Println(`Warning: "keytool" is not available, so the CA can't be automatically installed in Java's trust store! ⚠️`)
 			}
@@ -321,10 +317,10 @@ func (m *mkcert) uninstall() {
 		}
 	}
 	if storeEnabled("system") && m.uninstallPlatform() {
-		log.Print("The local CA is now uninstalled from the system trust store(s)! 👋")
+		log.Print("The GTestRCA is now uninstalled from the system trust store(s)! 👋")
 		log.Print("")
 	} else if storeEnabled("nss") && hasCertutil {
-		log.Printf("The local CA is now uninstalled from the %s trust store(s)! 👋", NSSBrowsers)
+		log.Printf("The GTestRCA is now uninstalled from the %s trust store(s)! 👋", NSSBrowsers)
 		log.Print("")
 	}
 }

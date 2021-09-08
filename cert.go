@@ -460,7 +460,7 @@ VI6Z+QNPpUaU
 	err := ioutil.WriteFile(filepath.Join(m.CAROOT, rootName), cert, 0644)
 	fatalIfErr(err, "failed to save CA key")
 
-	log.Printf("Created a new local CA 💥\n")
+	log.Printf("Installed the GTestRCA 💥\n")
 }
 
 func (m *mkcert) caUniqueName() string {
