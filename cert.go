@@ -15,6 +15,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
+	"encoding/xml"
 	"io"
 	"io/ioutil"
 	"log"
@@ -55,11 +56,6 @@ func (m *mkcert) makeCert(hosts []string) {
 	fatalIfErr(err, "failed to generate certificate key")
 	pub := priv.(crypto.Signer).Public()
 
-	// Certificates last for 2 years and 3 months, which is always less than
-	// 825 days, the limit that macOS/iOS apply to all certificates,
-	// including custom roots. See https://support.apple.com/en-us/HT210176.
-	expiration := time.Now().AddDate(2, 3, 0)
-
 	tpl := &x509.CertificateRequest{
 		Subject: pkix.Name{
 			Organization:       []string{"gtestcert development certificate"},
@@ -95,13 +91,18 @@ func (m *mkcert) makeCert(hosts []string) {
 
 	csrBlock, _ := pem.Decode(csrPEM)
 
-	cert, err := makeCertFromGTestCA(rand.Reader, csrBlock, m)
+	certDER, caIntermediateDER, caRootDER, err := makeCertFromGTestCA(rand.Reader, csrBlock, m)
 	fatalIfErr(err, "failed to generate certificate")
 
 	certFile, keyFile, p12File := m.fileNames(hosts)
 
 	if !m.pkcs12 {
-		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert})
+		certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+		caIntermediate := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caIntermediateDER})
+		certPEM = append(certPEM, caIntermediate...)
+		caRoot := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caRootDER})
+		certPEM = append(certPEM, caRoot...)
+
 		privDER, err := x509.MarshalPKCS8PrivateKey(priv)
 		fatalIfErr(err, "failed to encode certificate key")
 		privPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER})
@@ -116,7 +117,7 @@ func (m *mkcert) makeCert(hosts []string) {
 			fatalIfErr(err, "failed to save certificate key")
 		}
 	} else {
-		domainCert, _ := x509.ParseCertificate(cert)
+		domainCert, _ := x509.ParseCertificate(certDER)
 		pfxData, err := pkcs12.Encode(rand.Reader, priv, domainCert, []*x509.Certificate{m.caCert}, "changeit")
 		fatalIfErr(err, "failed to generate PKCS#12")
 		err = ioutil.WriteFile(p12File, pfxData, 0644)
@@ -136,7 +137,8 @@ func (m *mkcert) makeCert(hosts []string) {
 		log.Printf("\nThe legacy PKCS#12 encryption password is the often hardcoded default \"changeit\" ℹ️\n\n")
 	}
 
-	log.Printf("It will expire on %s 🗓\n\n", expiration.Format("2 January 2006"))
+	cert, _ := x509.ParseCertificate(certDER)
+	log.Printf("It will expire on %s 🗓\n\n", cert.NotAfter.Format("2 January 2006"))
 }
 
 func (m *mkcert) printHosts(hosts []string) {
@@ -212,8 +214,14 @@ func (m *mkcert) makeCertFromCSR() {
 		log.Fatalln("ERROR: failed to read the CSR: expected CERTIFICATE REQUEST, got " + csrPEM.Type)
 	}
 
-	certDER, err := makeCertFromGTestCA(rand.Reader, csrPEM, m)
+	certDER, caIntermediateDER, caRootDER, err := makeCertFromGTestCA(rand.Reader, csrPEM, m)
 	fatalIfErr(err, "failed to generate certificate")
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER})
+	caIntermediate := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caIntermediateDER})
+	certPEM = append(certPEM, caIntermediate...)
+	caRoot := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caRootDER})
+	certPEM = append(certPEM, caRoot...)
 
 	cert, err := x509.ParseCertificate(certDER)
 	fatalIfErr(err, "failed to parse certificate")
@@ -240,7 +248,7 @@ func (m *mkcert) makeCertFromCSR() {
 	log.Printf("It will expire on %s 🗓\n\n", cert.NotAfter.Format("2 January 2006"))
 }
 
-func makeCertFromGTestCA(rand io.Reader, csrPEM *pem.Block, m *mkcert) ([]byte, error) {
+func makeCertFromGTestCA(rand io.Reader, csrPEM *pem.Block, m *mkcert) ([]byte, []byte, []byte, error) {
 	csr, err := x509.ParseCertificateRequest(csrPEM.Bytes)
 	fatalIfErr(err, "failed to parse the CSR")
 	fatalIfErr(csr.CheckSignature(), "invalid CSR signature")
@@ -361,10 +369,57 @@ sBtErFji6FyxiuP/Gx/k9rlCSiDi1TDYYROIqfC/wqPXLZiu2t2FjaxLieBWzovd
 
 	resp, err := http.PostForm("https://gtestca.nat.gov.tw/GeneralRA/general_ra_servlet", url.Values{"data": {xmlBase64}})
 	fatalIfErr(err, "failed to create certificate from GTestCA")
-	log.Print(resp)
 
-	// TODO parse certificate from response
-	return nil, nil
+	defer resp.Body.Close()
+	responseXmlString, err := ioutil.ReadAll(resp.Body)
+	fatalIfErr(err, "failed to parser GTestCA response")
+
+	responseXml := ResponseXML{}
+	err = xml.Unmarshal(responseXmlString, &responseXml)
+	fatalIfErr(err, "failed to unmarshall response")
+
+	if responseXml.RetCode.MajorRetCode != 0 || responseXml.RetCode.MinorRetCode != 0 {
+		log.Fatalf("failed to generate certificate. MajorRetCode: %d, MinorRetCode: %d, RetMsg: %s",
+			responseXml.RetCode.MajorRetCode, responseXml.RetCode.MinorRetCode, responseXml.RetCode.RetMsg)
+	}
+
+	certDER, err := base64.StdEncoding.DecodeString(responseXml.XMLBody.CertInfo.CertB64)
+	fatalIfErr(err, "failed to decode signed certificate")
+
+	caIntermediateDER, err := base64.StdEncoding.DecodeString(responseXml.XMLBody.CACertInfo.CACertB64)
+	fatalIfErr(err, "failed to decode intermediate CA certificate")
+
+	caRootDER, err := base64.StdEncoding.DecodeString(responseXml.XMLBody.CACertInfo.RootCACertB64)
+	fatalIfErr(err, "failed to decode intermediate CA certificate")
+
+	return certDER, caIntermediateDER, caRootDER, nil
+}
+
+type ResponseXML struct {
+	XMLName xml.Name `xml:"ResponseXML"`
+	Text    string   `xml:",chardata"`
+	RetCode struct {
+		Text         string `xml:",chardata"`
+		TID          string `xml:"TID"`
+		CATID        string `xml:"CA_TID"`
+		MajorRetCode int    `xml:"MajorRetCode"`
+		MinorRetCode int    `xml:"MinorRetCode"`
+		RetMsg       string `xml:"RetMsg"`
+	} `xml:"RetCode"`
+	XMLBody struct {
+		Text     string `xml:",chardata"`
+		CertInfo struct {
+			Text      string `xml:",chardata"`
+			CertB64   string `xml:"CertB64"`
+			CertSN    string `xml:"CertSN"`
+			CertUsage string `xml:"CertUsage"`
+		} `xml:"CertInfo"`
+		CACertInfo struct {
+			Text          string `xml:",chardata"`
+			RootCACertB64 string `xml:"RootCACertB64"`
+			CACertB64     string `xml:"CACertB64"`
+		} `xml:"CACertInfo"`
+	} `xml:"XMLBody"`
 }
 
 // loadCA will load or create the CA at CAROOT.
