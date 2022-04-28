@@ -6,7 +6,6 @@
 package main
 
 import (
-	"crypto"
 	"crypto/x509"
 	"flag"
 	"fmt"
@@ -146,7 +145,6 @@ func main() {
 }
 
 const rootName = "rootCA.pem"
-const rootKeyName = "rootCA-key.pem"
 
 type mkcert struct {
 	installMode, uninstallMode bool
@@ -156,7 +154,6 @@ type mkcert struct {
 
 	CAROOT string
 	caCert *x509.Certificate
-	caKey  crypto.PrivateKey
 
 	// The system cert pool is only loaded once. After installing the root, checks
 	// will keep failing until the next execution. TODO: maybe execve?
