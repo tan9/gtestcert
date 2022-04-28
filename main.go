@@ -81,6 +81,10 @@ const advancedUsage = `Advanced options:
 var Version string
 
 func main() {
+	if len(os.Args) == 1 {
+		fmt.Print(shortUsage)
+		return
+	}
 	log.SetFlags(0)
 	var (
 		installFlag   = flag.Bool("install", false, "")
